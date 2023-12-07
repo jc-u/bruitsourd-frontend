@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import axios from "axios";
 
 const Products = ({ token }) => {
@@ -33,15 +34,24 @@ const Products = ({ token }) => {
 				return (
 					<div key={product._id}>
 						<div>{product.reference}</div>
+						<img src={product.thumb} alt={product.album} />
+						<div>{product.releaseId}</div>
 						<div>{product.artist}</div>
 						<div>{product.album}</div>
 						<div>{product.format}</div>
+						<div>{product.color !== "undefined" ? product.color : "black"}</div>
+						<div>{product.purchasePrice} €</div>
+						<div>{product.publicPrice} €</div>
 						<div>{product.price} €</div>
 						<div>{product.quantity}</div>
 						<div>{product.release_id}</div>
-						<div>{product.fournisseur}</div>
 						<div>{product.label}</div>
+						<div>{product.genre}</div>
 						<div>{product.style}</div>
+						<div>{product.fournisseur}</div>
+						<div>{product.condition}</div>
+						<div>{product.conditionSleeve}</div>
+						<Link to={product.uri}>Lien Discogs</Link>
 					</div>
 				);
 			})}

@@ -23,7 +23,7 @@ const AddProduct = ({ token }) => {
 	const [estimatedWeight, setEstimatedWeight] = useState("");
 	const [thumb, setThumb] = useState("");
 	const [images, setImages] = useState("");
-	const [more_images, setMoreImages] = useState([]);
+	const [more_images, setMoreImages] = useState(null);
 	const [tracklist, setTracklist] = useState("");
 	const [video, setVideo] = useState("");
 	const [uri, setUri] = useState("");
@@ -58,14 +58,11 @@ const AddProduct = ({ token }) => {
 		const fetchData = async () => {
 			setIsLoading(true);
 			try {
-				const { data } = await axios.get(
-					`http://localhost:3000/product/${id}`,
-					{
-						headers: {
-							Authorization: `Bearer ${token}`,
-						},
-					}
-				);
+				const { data } = await axios.get(`http://localhost:3000/search/${id}`, {
+					headers: {
+						Authorization: `Bearer ${token}`,
+					},
+				});
 				console.log(data);
 				setData(data);
 				setArtist(data.artists[0].name);
@@ -77,20 +74,20 @@ const AddProduct = ({ token }) => {
 				setPrice(0);
 				setQuantity(1);
 				setReleaseId(data.id);
-				setLabel(data.labels[0].name);
+				setLabel(data.labels.map((label) => [label.name]));
 				setFournisseur("");
-				setGenre(data.genres[0]);
-				setStyle(data.styles[0]);
+				setGenre(data.genres.map((genre) => [genre]));
+				setStyle(data.styles.map((style) => [style]));
 				setYear(data.year);
 				setCountry(data.country);
 				setEstimatedWeight(data.estimated_weight);
 				setThumb(data.thumb);
 				setImages(data.images[0].uri);
-				setMoreImages([]);
-				setTracklist(data.tracklist.map((track) => track.title));
+				setMoreImages(null);
+				setTracklist(data.tracklist.map((track) => [track.title]));
 				setVideo(
 					data.videos && data.videos.length > 0
-						? data.videos.map((video) => video.uri)
+						? data.videos.map((video) => [video.uri])
 						: ""
 				);
 				setUri(data.uri);
@@ -121,17 +118,33 @@ const AddProduct = ({ token }) => {
 			formData.append("quantity", quantity);
 			formData.append("releaseId", release_id);
 			formData.append("fournisseur", fournisseur);
-			formData.append("label", label);
-			formData.append("genre", genre);
-			formData.append("style", style);
+			for (let i = 0; i < label.length; i++) {
+				formData.append("label", label[i]);
+			}
+			for (let i = 0; i < genre.length; i++) {
+				formData.append("genre", genre[i]);
+			}
+			for (let i = 0; i < style.length; i++) {
+				formData.append("style", style[i]);
+			}
 			formData.append("year", year);
 			formData.append("country", country);
 			formData.append("estimatedWeight", estimatedWeight);
 			formData.append("thumb", thumb);
 			formData.append("images", images);
-			formData.append("moreImages", more_images);
-			formData.append("tracklist", tracklist);
-			formData.append("video", video);
+			if (more_images) {
+				for (let i = 0; i < more_images.length; i++) {
+					formData.append("moreImages", more_images[i]);
+				}
+			}
+			for (let i = 0; i < tracklist.length; i++) {
+				formData.append("tracklist", tracklist[i]);
+			}
+			if (video) {
+				for (let i = 0; i < video.length; i++) {
+					formData.append("video", video[i]);
+				}
+			}
 			formData.append("uri", uri);
 			formData.append("condition", condition);
 			formData.append("conditionSleeve", condition_sleeve);
@@ -139,13 +152,39 @@ const AddProduct = ({ token }) => {
 			formData.append("publish", publish);
 			formData.append("status", status);
 
+			if (publish) {
+				const publishData = new FormData();
+				publishData.append("release_id", parseInt(release_id));
+				publishData.append("condition", condition);
+				publishData.append("price", parseFloat(price));
+				publishData.append("status", status);
+				publishData.append("comments", comments);
+				publishData.append("sleeve_condition", condition_sleeve);
+
+				const response = await axios.post(
+					`http://localhost:3000/publish`,
+					publishData,
+					{
+						headers: {
+							Authorization: `Bearer ${token}`,
+							"Content-Type": "application/json",
+						},
+					}
+				);
+				console.log(response.data);
+			}
+
 			// Après avoir récupéré les données et mis à jour l'état, effectuez la requête POST
-			const response = await axios.post(`http://localhost:3000/add`, formData, {
-				headers: {
-					Authorization: `Bearer ${token}`,
-					"Content-Type": "multipart/form-data",
-				},
-			});
+			const response = await axios.post(
+				`http://localhost:3000/product`,
+				formData,
+				{
+					headers: {
+						Authorization: `Bearer ${token}`,
+						"Content-Type": "multipart/form-data",
+					},
+				}
+			);
 			navigate("/products");
 			console.log(response.data);
 		} catch (error) {
@@ -266,7 +305,8 @@ const AddProduct = ({ token }) => {
 					id="label"
 					value={label}
 					onChange={(event) => {
-						setLabel(event.target.value);
+						const newLabel = event.target.value.split(",");
+						setLabel(newLabel);
 					}}
 				/>
 				<label htmlFor="genre">Genre</label>
@@ -276,7 +316,8 @@ const AddProduct = ({ token }) => {
 					id="genre"
 					value={genre}
 					onChange={(event) => {
-						setGenre(event.target.value);
+						const newGenre = event.target.value.split(",");
+						setGenre(newGenre);
 					}}
 				/>
 				<label htmlFor="style">Style</label>
@@ -286,7 +327,8 @@ const AddProduct = ({ token }) => {
 					id="style"
 					value={style}
 					onChange={(event) => {
-						setStyle(event.target.value);
+						const newStyle = event.target.value.split(",");
+						setStyle(newStyle);
 					}}
 				/>
 				<label htmlFor="year">Year</label>
@@ -337,9 +379,7 @@ const AddProduct = ({ token }) => {
 					multiple
 					onChange={(event) => {
 						if (event.target.files) {
-							Array.from(event.target.files).forEach((file) => {
-								setMoreImages(file);
-							});
+							setMoreImages(event.target.files);
 						}
 					}}
 				/>
@@ -352,7 +392,8 @@ const AddProduct = ({ token }) => {
 					rows="20"
 					value={tracklist}
 					onChange={(event) => {
-						setTracklist(event.target.value);
+						const newTracklist = event.target.value.split(",");
+						setTracklist(newTracklist);
 					}}
 				/>
 				<label htmlFor="video">Vidéo</label>
@@ -362,7 +403,8 @@ const AddProduct = ({ token }) => {
 					id="video"
 					value={video}
 					onChange={(event) => {
-						setVideo(event.target.value);
+						const newVideo = event.target.value.split(",");
+						setVideo(newVideo);
 					}}
 				/>
 				<label htmlFor="uri">Lien</label>
@@ -434,9 +476,9 @@ const AddProduct = ({ token }) => {
 					type="checkbox"
 					name="publish"
 					id="publish"
-					value={publish}
+					checked={publish}
 					onChange={(event) => {
-						setPublish(event.target.value);
+						setPublish(event.target.checked);
 					}}
 				/>
 				<button type="submit">Ajouter</button>
