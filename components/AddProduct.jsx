@@ -1,8 +1,7 @@
-import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import axios from "axios";
 
-const AddProduct = ({ token }) => {
+const AddProduct = ({ token, id, setModalIsOpen }) => {
 	const [data, setData] = useState(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [artist, setArtist] = useState("");
@@ -32,9 +31,12 @@ const AddProduct = ({ token }) => {
 	const [comments, setComments] = useState("");
 	const [publish, setPublish] = useState(false);
 	const [status, setStatus] = useState("For Sale");
+	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [errorMessage, setErrorMessage] = useState(null);
+	const [firstRequestDone, setFirstRequestDone] = useState(false);
+	const [publishResponse, setPublishResponse] = useState(null);
 
-	const navigate = useNavigate();
-
+	console.log(setModalIsOpen);
 	// Mettez à jour la valeur de publicPrice chaque fois que purchasePrice change
 	useEffect(() => {
 		const newPublicPrice =
@@ -51,8 +53,6 @@ const AddProduct = ({ token }) => {
 				: Math.ceil(Math.ceil(publicPrice) * 0.14 + publicPrice);
 		setPrice(newPrice);
 	}, [publicPrice, purchasePrice]);
-
-	const { id } = useParams();
 
 	useEffect(() => {
 		const fetchData = async () => {
@@ -104,9 +104,48 @@ const AddProduct = ({ token }) => {
 		fetchData();
 	}, [id, token]);
 
+	const handlePublish = async () => {
+		if (publish && !firstRequestDone) {
+			const publishData = {
+				release_id: parseInt(release_id),
+				condition: condition,
+				price: parseFloat(price),
+				status: status,
+				comments: comments,
+				sleeve_condition: condition_sleeve,
+			};
+
+			try {
+				const response = await axios.post(
+					`http://localhost:3000/publish`,
+					JSON.stringify(publishData),
+					{
+						headers: {
+							Authorization: `Bearer ${token}`,
+							"Content-Type": "application/json",
+						},
+					}
+				);
+				// Mettre à jour publishResponse avec la réponse de la requête
+				console.log(response.data);
+				setPublishResponse(response);
+				setFirstRequestDone(true);
+			} catch (error) {
+				console.log(error.response);
+			}
+		}
+	};
+
 	const handleSubmit = async (event) => {
 		event.preventDefault();
+		setIsSubmitting(true);
 		try {
+			// Appeler handlePublish et attendre sa réponse
+			await handlePublish();
+
+			// Utiliser la réponse de handlePublish
+			console.log(publishResponse);
+
 			const formData = new FormData();
 			formData.append("artist", artist);
 			formData.append("album", album);
@@ -151,28 +190,7 @@ const AddProduct = ({ token }) => {
 			formData.append("comments", comments);
 			formData.append("publish", publish);
 			formData.append("status", status);
-
-			if (publish) {
-				const publishData = new FormData();
-				publishData.append("release_id", parseInt(release_id));
-				publishData.append("condition", condition);
-				publishData.append("price", parseFloat(price));
-				publishData.append("status", status);
-				publishData.append("comments", comments);
-				publishData.append("sleeve_condition", condition_sleeve);
-
-				const response = await axios.post(
-					`http://localhost:3000/publish`,
-					publishData,
-					{
-						headers: {
-							Authorization: `Bearer ${token}`,
-							"Content-Type": "application/json",
-						},
-					}
-				);
-				console.log(response.data);
-			}
+			formData.append("listingId", publishResponse.data.listing_id);
 
 			// Après avoir récupéré les données et mis à jour l'état, effectuez la requête POST
 			const response = await axios.post(
@@ -185,10 +203,18 @@ const AddProduct = ({ token }) => {
 					},
 				}
 			);
-			navigate("/products");
+
 			console.log(response.data);
+
+			// Fermer la modale
+			setModalIsOpen(false);
 		} catch (error) {
-			console.log(error.response);
+			console.error("Erreur lors de la soumission du formulaire :", error);
+			setErrorMessage(
+				"Une erreur est survenue lors de la soumission du formulaire."
+			);
+		} finally {
+			setIsSubmitting(false);
 		}
 	};
 
@@ -197,7 +223,7 @@ const AddProduct = ({ token }) => {
 	) : (
 		<div>
 			<h1>Add</h1>
-			<form onSubmit={handleSubmit}>
+			<form>
 				<label htmlFor="artist">Artist</label>
 				<input
 					type="text"
@@ -284,6 +310,7 @@ const AddProduct = ({ token }) => {
 					name="release_id"
 					id="release_id"
 					value={release_id}
+					disabled="disabled"
 					onChange={(event) => {
 						setReleaseId(event.target.value);
 					}}
@@ -458,6 +485,7 @@ const AddProduct = ({ token }) => {
 					cols="30"
 					rows="10"
 					value={comments}
+					placeholder="Comments"
 					onChange={(event) => {
 						setComments(event.target.value);
 					}}></textarea>
@@ -481,7 +509,23 @@ const AddProduct = ({ token }) => {
 						setPublish(event.target.checked);
 					}}
 				/>
-				<button type="submit">Ajouter</button>
+				{publishResponse ? (
+					<input
+						type="text"
+						name="listingId"
+						id="listingId"
+						disabled="disabled"
+						value={publishResponse.data.listing_id}></input>
+				) : (
+					<button type="button" onClick={handlePublish}>
+						Publier
+					</button>
+				)}
+				{isSubmitting && <p>Chargement...</p>}
+				<button type="button" disabled={isSubmitting} onClick={handleSubmit}>
+					Ajouter
+				</button>
+				{errorMessage && <p>{errorMessage}</p>}
 			</form>
 		</div>
 	);

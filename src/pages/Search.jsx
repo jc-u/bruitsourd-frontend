@@ -1,12 +1,16 @@
 import { useState } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
+import Modal from "react-modal";
+import AddProduct from "../../components/AddProduct";
 
 const Search = ({ token }) => {
 	const [query, setQuery] = useState("");
 	const [pagination, setPagination] = useState({ page: 1, per_page: 100 });
 	const [data, setData] = useState([]);
 	const [isLoading, setIsLoading] = useState(false);
+	const [modalIsOpen, setModalIsOpen] = useState(false);
+	const [selectedProductId, setSelectedProductId] = useState(null);
 
 	const handleNextPage = () => {
 		setPagination({ ...pagination, page: pagination.page + 1 });
@@ -46,6 +50,13 @@ const Search = ({ token }) => {
 			// handle error
 		}
 		setIsLoading(false);
+		setModalIsOpen(false); // Ferme la modal
+	};
+
+	const handleAddProduct = (productId) => {
+		setSelectedProductId(productId);
+		setModalIsOpen(true);
+		setQuery(""); // Réinitialise la query
 	};
 
 	return (
@@ -84,22 +95,37 @@ const Search = ({ token }) => {
 				data.results &&
 				data.results.map((result) => (
 					<div key={result.id}>
-						<Link to={`/add/${result.id}`}>
-							<div>{result.id}</div>
-							<div>{result.barcode}</div>
-							<img src={result.thumb} alt={result.title} />
-							<div>{result.title}</div>
-							<div>
-								{result.format && result.format.length > 0
-									? result.format[0]
-									: "N/A"}
-							</div>
-						</Link>
 						<div>
-							<a href={`https://www.discogs.com${result.uri}`}>
-								Voir plus de détails
-							</a>
+							<Link onClick={() => handleAddProduct(result.id)}>
+								<div>{result.id}</div>
+								<div>{result.barcode}</div>
+								<img src={result.thumb} alt={result.title} />
+								<div>{result.title}</div>
+								<div>
+									{result.format && result.format.length > 0
+										? result.format[0]
+										: "N/A"}
+								</div>
+							</Link>
+							<div>
+								<a href={`https://www.discogs.com${result.uri}`}>
+									Voir plus de détails
+								</a>
+							</div>
 						</div>
+						<Modal
+							isOpen={selectedProductId === result.id && modalIsOpen}
+							onRequestClose={() => {
+								setSelectedProductId(null);
+								setModalIsOpen(false);
+							}}>
+							<button onClick={() => setModalIsOpen(false)}>X</button>
+							<AddProduct
+								token={token}
+								id={selectedProductId}
+								setModalIsOpen={setModalIsOpen}
+							/>
+						</Modal>
 					</div>
 				))
 			)}

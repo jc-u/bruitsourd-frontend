@@ -51,7 +51,10 @@ const Products = ({ token }) => {
 						<div>{product.fournisseur}</div>
 						<div>{product.condition}</div>
 						<div>{product.conditionSleeve}</div>
+						<div>{product.listingId}</div>
 						<Link to={product.uri}>Lien Discogs</Link>
+						<button>Modifier</button>
+						<button>Supprimer</button>
 					</div>
 				);
 			})}
